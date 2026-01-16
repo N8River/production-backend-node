@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { connectDatabase } from "./config/database";
 import authRoutes from "./routes/auth.routes";
+import recordRoutes from "./routes/record.routes";
 
 // Load environment variables
 dotenv.config();
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/", recordRoutes);
 
 const startServer = async () => {
   try {

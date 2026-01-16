@@ -1,12 +1,14 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-export interface IUser extends Document {
+export interface IUser {
   username: string;
   password: string;
   refreshTokens: string[];
+  role: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
+export type UserRole = "user" | "admin";
 
 const userSchema = new Schema<IUser>(
   {
@@ -29,6 +31,11 @@ const userSchema = new Schema<IUser>(
       type: [String],
       default: [],
       select: false,
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
     },
   },
   {
