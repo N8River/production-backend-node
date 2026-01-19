@@ -4,6 +4,9 @@ import { connectDatabase } from "./config/database";
 import authRoutes from "./routes/auth.routes";
 import recordRoutes from "./routes/record.routes";
 
+import { errorHandler } from "./middleware/error.middleware";
+import Logger from "./config/logger";
+
 // Load environment variables
 dotenv.config();
 
@@ -22,15 +25,18 @@ app.get("/", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/", recordRoutes);
 
+// Global Error Handler
+app.use(errorHandler);
+
 const startServer = async () => {
   try {
     await connectDatabase();
 
     app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      Logger.info(`Server running on http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    Logger.error("Failed to start server");
     process.exit(1);
   }
 };

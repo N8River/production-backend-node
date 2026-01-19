@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { Record } from "../models/record.model";
 import { AuthRequest } from "../middleware/auth.middleware";
 import {
@@ -8,12 +8,14 @@ import {
   AdminRecordResponse,
 } from "../types/record.types";
 import { getPrivateRecords as getPrivateRecordsService } from "../services/record.service";
+import { catchAsync } from "../utils/catchAsync";
 
-export const getPublicRecords = async (
-  req: Request,
-  res: Response<PaginatedResponse<PublicRecordResponse>>
-): Promise<void> => {
-  try {
+export const getPublicRecords = catchAsync(
+  async (
+    req: Request,
+    res: Response<PaginatedResponse<PublicRecordResponse>>,
+    next: NextFunction
+  ): Promise<void> => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const category = req.query.category as string | undefined;
@@ -63,28 +65,17 @@ export const getPublicRecords = async (
         },
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      data: {
-        records: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        },
-      },
-    });
   }
-};
+);
 
-export const getPrivateRecords = async (
-  req: AuthRequest,
-  res: Response<PaginatedResponse<PrivateRecordResponse | AdminRecordResponse>>
-): Promise<void> => {
-  try {
+export const getPrivateRecords = catchAsync(
+  async (
+    req: AuthRequest,
+    res: Response<
+      PaginatedResponse<PrivateRecordResponse | AdminRecordResponse>
+    >,
+    next: NextFunction
+  ): Promise<void> => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const category = req.query.category as string | undefined;
@@ -107,19 +98,5 @@ export const getPrivateRecords = async (
         pagination: result.pagination,
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      data: {
-        records: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-        },
-      },
-    });
   }
-};
+);

@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { User } from "../models/user.model";
 import { hashPassword, verifyPassword } from "../services/password.service";
 import {
@@ -13,22 +13,21 @@ import {
   RefreshTokenResponse,
   LogoutResponse,
 } from "../types/auth.types";
+import { catchAsync } from "../utils/catchAsync";
+import { AppError } from "../utils/appError";
 
-export const register = async (
-  req: Request,
-  res: Response<RegisterResponse>
-): Promise<void> => {
-  try {
+export const register = catchAsync(
+  async (
+    req: Request,
+    res: Response<RegisterResponse>,
+    next: NextFunction,
+  ): Promise<void> => {
     const { username, password } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      res.status(409).json({
-        success: false,
-        message: "Username already taken",
-      });
-      return;
+      throw new AppError("Username already taken", 409);
     }
 
     // Hash password
@@ -49,54 +48,29 @@ export const register = async (
         username: user.username,
       },
     });
-  } catch (error) {
-    // Handle duplicate key error
-    if (error instanceof Error && error.name === "MongoServerError") {
-      const mongoError = error as any;
-      if (mongoError.code === 11000) {
-        res.status(409).json({
-          success: false,
-          message: "Username already taken",
-        });
-        return;
-      }
-    }
+  },
+);
 
-    // Generic error handling
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
-
-export const login = async (
-  req: Request,
-  res: Response<LoginResponse>
-): Promise<void> => {
-  try {
+export const login = catchAsync(
+  async (
+    req: Request,
+    res: Response<LoginResponse>,
+    next: NextFunction,
+  ): Promise<void> => {
     const { username, password } = req.body;
 
     // Find user and include password and refreshTokens
     const user = await User.findOne({ username }).select(
-      "+password +refreshTokens"
+      "+password +refreshTokens",
     );
     if (!user) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid username or password",
-      });
-      return;
+      throw new AppError("Invalid username or password", 401);
     }
 
     // Verify password
     const isPasswordValid = await verifyPassword(user.password, password);
     if (!isPasswordValid) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid username or password",
-      });
-      return;
+      throw new AppError("Invalid username or password", 401);
     }
 
     // Generate tokens
@@ -125,37 +99,25 @@ export const login = async (
         refreshToken,
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+  },
+);
 
-export const refreshToken = async (
-  req: Request,
-  res: Response<RefreshTokenResponse>
-): Promise<void> => {
-  try {
+export const refreshToken = catchAsync(
+  async (
+    req: Request,
+    res: Response<RefreshTokenResponse>,
+    next: NextFunction,
+  ): Promise<void> => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      res.status(400).json({
-        success: false,
-        message: "Refresh token is required",
-      });
-      return;
+      throw new AppError("Refresh token is required", 400);
     }
 
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
     if (!decoded) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid or expired refresh token",
-      });
-      return;
+      throw new AppError("Invalid or expired refresh token", 401);
     }
 
     // Hash the incoming token to compare with stored hash
@@ -164,25 +126,17 @@ export const refreshToken = async (
     // Find user and check if hashed refresh token exists in database
     const user = await User.findById(decoded.userId).select("+refreshTokens");
     if (!user) {
-      res.status(401).json({
-        success: false,
-        message: "User not found",
-      });
-      return;
+      throw new AppError("User not found", 401);
     }
 
     // Check if hashed refresh token is stored in database
     if (!user.refreshTokens.includes(hashedRefreshToken)) {
-      res.status(401).json({
-        success: false,
-        message: "Refresh token has been revoked",
-      });
-      return;
+      throw new AppError("Refresh token has been revoked", 401);
     }
 
     // Rotate refresh token
     user.refreshTokens = user.refreshTokens.filter(
-      (token) => token !== hashedRefreshToken
+      (token) => token !== hashedRefreshToken,
     );
 
     const newAccessToken = generateAccessToken({
@@ -207,27 +161,19 @@ export const refreshToken = async (
         refreshToken: newRefreshToken,
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+  },
+);
 
-export const logout = async (
-  req: Request,
-  res: Response<LogoutResponse>
-): Promise<void> => {
-  try {
+export const logout = catchAsync(
+  async (
+    req: Request,
+    res: Response<LogoutResponse>,
+    next: NextFunction,
+  ): Promise<void> => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      res.status(400).json({
-        success: false,
-        message: "Refresh token is required",
-      });
-      return;
+      throw new AppError("Refresh token is required", 400);
     }
 
     // Verify refresh token to get user ID
@@ -248,7 +194,7 @@ export const logout = async (
     const user = await User.findById(decoded.userId).select("+refreshTokens");
     if (user) {
       user.refreshTokens = user.refreshTokens.filter(
-        (token) => token !== hashedRefreshToken
+        (token) => token !== hashedRefreshToken,
       );
       await user.save();
     }
@@ -257,10 +203,5 @@ export const logout = async (
       success: true,
       message: "Logged out successfully",
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+  },
+);

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../services/jwt.service";
 import { User } from "../models/user.model";
+import { catchAsync } from "../utils/catchAsync";
+import { AppError } from "../utils/appError";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -10,20 +12,19 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authenticate = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
+export const authenticate = catchAsync(
+  async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({
-        success: false,
-        message: "Authentication required. Please provide a valid token.",
-      });
-      return;
+      throw new AppError(
+        "Authentication required. Please provide a valid token.",
+        401,
+      );
     }
 
     // Extract token
@@ -32,21 +33,13 @@ export const authenticate = async (
     // Verify token
     const decoded = verifyAccessToken(token);
     if (!decoded) {
-      res.status(401).json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-      return;
+      throw new AppError("Invalid or expired token", 401);
     }
 
     // Fetch user from database to get current role
     const user = await User.findById(decoded.userId).select("username role");
     if (!user) {
-      res.status(401).json({
-        success: false,
-        message: "User not found",
-      });
-      return;
+      throw new AppError("User not found", 401);
     }
 
     // Attach user info to request
@@ -57,31 +50,21 @@ export const authenticate = async (
     };
 
     next();
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+  },
+);
 
 export const authorize =
   (allowedRoles: Array<"user" | "admin">) =>
   (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-      return;
+      throw new AppError("Authentication required", 401);
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({
-        success: false,
-        message: "You do not have permission to access this resource",
-      });
-      return;
+      throw new AppError(
+        "You do not have permission to access this resource",
+        403,
+      );
     }
 
     next();
