@@ -1,14 +1,14 @@
-import express from "express";
+// Import and load environment variables
 import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
 import { connectDatabase } from "./config/database";
 import authRoutes from "./routes/auth.routes";
 import recordRoutes from "./routes/record.routes";
-
+import "./config/redis";
 import { errorHandler } from "./middleware/error.middleware";
 import Logger from "./config/logger";
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getPublicRecords,
   getPrivateRecords,
+  getExpensiveRecords
 } from "../controllers/record.controller";
 import { validate } from "../middleware/validation.middleware";
 import { authenticate, authorize } from "../middleware/auth.middleware";
@@ -18,5 +19,7 @@ router.get(
   validate(getRecordsQuerySchema),
   getPrivateRecords
 );
+
+router.get("/public/expensive", getExpensiveRecords)
 
 export default router;

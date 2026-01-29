@@ -24,7 +24,7 @@ export interface GetPrivateRecordsResult {
 }
 
 export const getPrivateRecords = async (
-  params: GetPrivateRecordsParams
+  params: GetPrivateRecordsParams,
 ): Promise<GetPrivateRecordsResult> => {
   const { userId, role: userRole, page, limit, category } = params;
 
@@ -85,6 +85,25 @@ export const getPrivateRecords = async (
       limit,
       total,
       totalPages,
+    },
+  };
+};
+
+export const getExpensiveRecords = async () => {
+  // Simulate an expensive database aggregation
+  await new Promise((resolve) => {
+    setTimeout(resolve, 3000);
+  });
+
+  const totalRecords = await Record.countDocuments();
+  const publicRecords = await Record.countDocuments({ visibility: "public" });
+  const privateRecords = await Record.countDocuments({ visibility: "private" });
+
+  return {
+    totalRecords,
+    breakdown: {
+      public: publicRecords,
+      private: privateRecords,
     },
   };
 };

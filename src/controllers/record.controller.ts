@@ -7,14 +7,18 @@ import {
   PrivateRecordResponse,
   AdminRecordResponse,
 } from "../types/record.types";
-import { getPrivateRecords as getPrivateRecordsService } from "../services/record.service";
+import {
+  getPrivateRecords as getPrivateRecordsService,
+  getExpensiveRecords as getExpensiveRecordsService,
+} from "../services/record.service";
 import { catchAsync } from "../utils/catchAsync";
+import redis from "../config/redis";
 
 export const getPublicRecords = catchAsync(
   async (
     req: Request,
     res: Response<PaginatedResponse<PublicRecordResponse>>,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
@@ -65,7 +69,7 @@ export const getPublicRecords = catchAsync(
         },
       },
     });
-  }
+  },
 );
 
 export const getPrivateRecords = catchAsync(
@@ -74,7 +78,7 @@ export const getPrivateRecords = catchAsync(
     res: Response<
       PaginatedResponse<PrivateRecordResponse | AdminRecordResponse>
     >,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
@@ -98,5 +102,35 @@ export const getPrivateRecords = catchAsync(
         pagination: result.pagination,
       },
     });
-  }
+  },
+);
+
+export const getExpensiveRecords = catchAsync(
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const cacheKey = "records:expensive:stats";
+
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      res.status(200).json({
+        success: true,
+        message: "Aggregation retrieved successfully",
+        data: { ...JSON.parse(cachedData), cached: true },
+      });
+      return;
+    }
+
+    const expensiveData = await getExpensiveRecordsService();
+
+    await redis.set(cacheKey, JSON.stringify(expensiveData), "EX", 120);
+
+    res.status(200).json({
+      success: true,
+      message: "Aggregation retrieved successfully",
+      data: {
+        ...expensiveData,
+        cached: false,
+      },
+    });
+  },
 );
